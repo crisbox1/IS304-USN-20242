@@ -1,0 +1,227 @@
+import java.io.*;
+import java.util.*;
+
+public class Sudoku {
+    private int[][] celdas; // Tablero 9x9
+    private List<String> movimientos; // Lista para almacenar movimientos
+
+    // Constructor inicializa el tablero vacío y la lista de movimientos
+    public Sudoku() {
+        this.celdas = new int[9][9];
+        this.movimientos = new ArrayList<>();
+    }
+
+    // Inicializar el tablero con una cantidad de casillas llenas
+    public void iniciarConCasillas(int cantidad) {
+        Random rand = new Random();
+        for (int i = 0; i < cantidad; i++) {
+            int fila = rand.nextInt(9);
+            int columna = rand.nextInt(9);
+            int valor = rand.nextInt(9) + 1; // Valores entre 1 y 9
+            if (celdas[fila][columna] == 0) {
+                celdas[fila][columna] = valor;
+                movimientos.add("Inicio: " + (fila + 1) + "," + (columna + 1) + "," + valor);
+            }
+        }
+    }
+
+    // Imprimir el tablero
+    public void imprimirTablero() {
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                System.out.print(celdas[i][j] == 0 ? ". " : celdas[i][j] + " ");
+                if ((j + 1) % 3 == 0 && j < 8) {
+                    System.out.print("| ");
+                }
+            }
+            System.out.println();
+            if ((i + 1) % 3 == 0 && i < 8) {
+                System.out.println("---------");
+            }
+        }
+    }
+
+    // Verificar si el tablero es válido
+    public boolean esValido() {
+        return verificarFilas() && verificarColumnas() && verificarSubcuadrantes();
+    }
+
+    private boolean verificarFilas() {
+        for (int i = 0; i < 9; i++) {
+            if (!verificarUnico(celdas[i])) return false;
+        }
+        return true;
+    }
+
+    private boolean verificarColumnas() {
+        for (int j = 0; j < 9; j++) {
+            int[] columna = new int[9];
+            for (int i = 0; i < 9; i++) {
+                columna[i] = celdas[i][j];
+            }
+            if (!verificarUnico(columna)) return false;
+        }
+        return true;
+    }
+
+    private boolean verificarSubcuadrantes() {
+        for (int i = 0; i < 9; i += 3) {
+            for (int j = 0; j < 9; j += 3) {
+                int[] subcuadrante = new int[9];
+                int index = 0;
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        subcuadrante[index++] = celdas[i + x][j + y];
+                    }
+                }
+                if (!verificarUnico(subcuadrante)) return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean verificarUnico(int[] arreglo) {
+        boolean[] visto = new boolean[9];
+        for (int num : arreglo) {
+            if (num < 1 || num > 9) continue;
+            if (visto[num - 1]) return false;
+            visto[num - 1] = true;
+        }
+        return true;
+    }
+
+    // Guardar la partida en un archivo
+    public void guardarPartida(String filename) throws IOException {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
+            for (String movimiento : movimientos) {
+                writer.println(movimiento);
+            }
+        }
+    }
+
+    // Cargar la partida desde un archivo
+    public void cargarPartida(String filename) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // Parse the line and apply moves
+                // Format: "Inicio: fila,columna,valor"
+                String[] parts = line.split(": |,");
+                if (parts.length == 4) {
+                    int fila = Integer.parseInt(parts[1]) - 1;
+                    int columna = Integer.parseInt(parts[2]) - 1;
+                    int valor = Integer.parseInt(parts[3]);
+                    celdas[fila][columna] = valor;
+                }
+            }
+        }
+    }
+
+    // Método para jugar al Sudoku
+    public void jugar() {
+        Scanner scanner = new Scanner(System.in);
+        while (true) {
+            imprimirTablero();
+            System.out.println("Ingrese una opción:");
+            System.out.println("1. Hacer un movimiento");
+            System.out.println("2. Guardar partida");
+            System.out.println("3. Cargar partida");
+            System.out.println("4. Salir");
+            
+            int opcion = scanner.nextInt();
+            scanner.nextLine(); // Limpiar buffer
+
+            if (opcion == 1) {
+                int fila = -1, columna = -1, num = -1;
+                while (true) {
+                    try {
+                        System.out.println("Ingrese la fila, columna y número (1-9):");
+                        fila = scanner.nextInt() - 1;
+                        columna = scanner.nextInt() - 1;
+                        num = scanner.nextInt();
+                        scanner.nextLine(); // Limpiar buffer
+                        if (num < 1 || num > 9 || fila < 0 || fila >= 9 || columna < 0 || columna >= 9) {
+                            throw new InputMismatchException();
+                        }
+                        break;
+                    } catch (InputMismatchException e) {
+                        System.out.println("Entrada inválida. Intente de nuevo.");
+                        scanner.next(); // Limpiar entrada
+                    }
+                }
+                celdas[fila][columna] = num;
+                movimientos.add("Movimiento: " + (fila + 1) + "," + (columna + 1) + "," + num);
+                if (!esValido()) {
+                    System.out.println("Movimiento inválido. Revertiendo cambio.");
+                    celdas[fila][columna] = 0;
+                    movimientos.remove(movimientos.size() - 1);
+                } else {
+                    System.out.println("Movimiento válido.");
+                }
+                verificarCompletado();
+            } else if (opcion == 2) {
+                System.out.println("Ingrese el nombre del archivo para guardar:");
+                String archivoGuardar = scanner.nextLine();
+                try {
+                    guardarPartida(archivoGuardar);
+                    System.out.println("Partida guardada exitosamente.");
+                } catch (IOException e) {
+                    System.out.println("Error al guardar la partida.");
+                }
+            } else if (opcion == 3) {
+                System.out.println("Ingrese el nombre del archivo para cargar:");
+                String archivoCargar = scanner.nextLine();
+                try {
+                    cargarPartida(archivoCargar);
+                    System.out.println("Partida cargada exitosamente.");
+                } catch (IOException e) {
+                    System.out.println("Error al cargar la partida.");
+                }
+            } else if (opcion == 4) {
+                System.out.println("Saliendo del juego...");
+                break;
+            }
+        }
+        scanner.close();
+    }
+
+    // Verificar si se ha completado una fila, columna o subcuadrante
+    private void verificarCompletado() {
+        for (int i = 0; i < 9; i++) {
+            if (verificarFilaCompleta(i)) {
+                System.out.println("¡Fila " + (i + 1) + " completada!");
+            }
+            if (verificarColumnaCompleta(i)) {
+                System.out.println("¡Columna " + (i + 1) + " completada!");
+            }
+            if (verificarSubcuadranteCompleto(i)) {
+                System.out.println("¡Subcuadrante " + (i + 1) + " completado!");
+            }
+        }
+    }
+
+    private boolean verificarFilaCompleta(int fila) {
+        for (int j = 0; j < 9; j++) {
+            if (celdas[fila][j] == 0) return false;
+        }
+        return true;
+    }
+
+    private boolean verificarColumnaCompleta(int columna) {
+        for (int i = 0; i < 9; i++) {
+            if (celdas[i][columna] == 0) return false;
+        }
+        return true;
+    }
+
+    private boolean verificarSubcuadranteCompleto(int num) {
+        int filaInicio = (num / 3) * 3;
+        int columnaInicio = (num % 3) * 3;
+        for (int i = filaInicio; i < filaInicio + 3; i++) {
+            for (int j = columnaInicio; j < columnaInicio + 3; j++) {
+                if (celdas[i][j] == 0) return false;
+            }
+        }
+        return true;
+    }
+}
